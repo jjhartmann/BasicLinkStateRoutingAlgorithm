@@ -110,6 +110,8 @@ public:
         // Build the Forwarding table.
         EdgeMap::iterator sourceNode = m_routingmap.find(*m_nodes.begin());
         vector<string>::iterator iter = m_nodes.begin();
+
+        // Iterate through all nodes and build table
         while (iter != m_nodes.end())
         {
             if (*iter == sourceNode->first)
@@ -118,6 +120,7 @@ public:
                 continue;
             }
 
+            // Iterate through possible source paths
             EdgeMap::iterator siter = sourceNode;
             while (siter != m_routingmap.end() &&
                    siter->first == sourceNode->first)
@@ -125,7 +128,7 @@ public:
                 int cost = 0;
                 if (findNode(siter, *iter, cost))
                 {
-                    EdgeTuple res = sourceNode->second;
+                    EdgeTuple res = siter->second;
                     get<WEIGHT>(res) = cost;
                     m_forwardingTable.insert(make_pair(*iter, res));
 
@@ -178,7 +181,7 @@ private:
         while (!Q.empty())
         {
             string node = Q.front();
-            EdgeMap::iterator outerIter = m_routingmap.find(Q.back());
+            EdgeMap::iterator outerIter = m_routingmap.find(node);
             Q.pop();
 
             while (outerIter != m_routingmap.end() &&
