@@ -5,8 +5,20 @@
 #include <stdlib.h>
 #include <tuple>
 #include <functional>
+#include <set>
+#include <map>
+#include <queue>
 
 using namespace std;
+typedef std::tuple<string, string, int> EdgeTuple;
+typedef multimap<string, EdgeTuple> EdgeMap;
+
+enum {
+    SNODE = 0,
+    ENODE,
+    WEIGHT
+};
+
 
 class LinkState
 {
@@ -53,7 +65,7 @@ public:
                 }
 
                 auto tuple = make_tuple(ref(sNode), ref(eNode), weight);
-                m_edges.push_back(tuple);
+                m_edges.insert(make_pair(sNode, tuple));
 
                 pindex = index + 1;
             }
@@ -61,11 +73,191 @@ public:
 
     }
 
+    // Main Algorithm, Creates the routing table by finding the min
+    // Distance from source node to other nodes in network.
+    void CreateRoutingTable()
+    {
+
+        // Start with initial node.
+        string node = *m_nodes.begin();
+        int currWeight = 0;
+
+
+        // Build map of least cost routing
+        int index = 0;
+        while (index++ < m_nodes.size() - 1)
+        {
+            // Build Edge List
+            buildEdgeList(node, currWeight);
+
+            // Find Min edge in list.
+            EdgeTuple min_edge = findMinEdge();
+
+            // Add the min edge to the routing map
+            m_routingmap.insert(make_pair(get<SNODE>(min_edge), min_edge));
+            currWeight = get<WEIGHT>(min_edge);
+            node = get<ENODE>(min_edge);
+        }
+
+        // Build the Forwarding table.
+        EdgeMap::iterator sourceNode = m_routingmap.find(*m_nodes.begin());
+        vector<string>::iterator iter = m_nodes.begin();
+        while (iter != m_nodes.end())
+        {
+            if (*iter == sourceNode->first)
+            {
+                continue;
+            }
+
+            EdgeMap::iterator siter = sourceNode;
+            while (siter != m_routingmap.end() &&
+                   siter->first != sourceNode->first)
+            {
+                int cost = 0;
+                if (findNode(siter, *iter, cost))
+                {
+                    EdgeTuple res = sourceNode->second;
+                    get<WEIGHT>(res) = cost;
+                    m_forwardingTable.insert(make_pair(*iter, res));
+
+                    // Set iter to end, and continue with next node.
+                    siter = m_routingmap.end();
+                }
+                else
+                {
+                    ++siter;
+                }
+            }
+
+
+        }
+
+
+    }
+
+    // Print the forwarding table
+    void Print()
+    {
+        ;
+    }
+
+    // Pivate methods
+private:
+
+    // Determine if node is in current source edge
+    // Return true if so.
+    bool findNode(EdgeMap::iterator &snode, string currNode, int &cost)
+    {
+        if (get<ENODE>(snode->second) == currNode)
+        {
+            cost = get<WEIGHT>(snode->second);
+            return  true;
+        }
+
+        queue<string> Q;
+        Q.push(get<ENODE>(snode->second));
+
+        while (!Q.empty())
+        {
+            string node = Q.back();
+            EdgeMap::iterator outerIter = m_routingmap.find(Q.back());
+            Q.pop();
+
+            while (outerIter != m_routingmap.end() &&
+                   outerIter->first == node)
+            {
+                if (get<ENODE>(outerIter->second) == currNode)
+                {
+                    // Node Found return weigth/cost
+                    cost = get<WEIGHT>(outerIter->second);
+                    return true;
+                }
+
+                Q.push(get<ENODE>(outerIter->second));
+            }
+        }
+
+        // Nothing found in routing map.
+        return false;
+    }
+
+
+    // Builds a list of edges with adjusted for all viewed nodes
+    void buildEdgeList(const string node, const int wieght)
+    {
+        EdgeMap::iterator iter = m_edges.find(node);
+        while (iter->first == node)
+        {
+            EdgeTuple tpl = iter->second;
+            get<WEIGHT>(tpl) += wieght;
+
+            if (!duplicateEdge(tpl))
+            {
+                m_edgelist.insert(make_pair(get<SNODE>(tpl), tpl));
+            }
+
+            ++iter;
+        }
+    }
+
+    // Determines if there is a duplicate edge in list
+    // ie X->Y == Y->X
+    bool duplicateEdge(EdgeTuple tuple)
+    {
+        string enode = get<ENODE>(tuple);
+        string snode = get<SNODE>(tuple);
+        EdgeMap::iterator iter = m_edgeused.find(enode);
+        while (iter != m_edgeused.end()&& iter->first == enode)
+        {
+            if (get<ENODE>(iter->second) == snode)
+            {
+                return true;
+            }
+
+            ++iter;
+        }
+
+        return false;
+    }
+
+    // Finds the minimum weight in the list of edges.
+    EdgeTuple findMinEdge()
+    {
+        EdgeMap::iterator iter = m_edgelist.begin();
+        EdgeMap::iterator res =iter;
+        while (iter != m_edgelist.end())
+        {
+            if (get<WEIGHT>(iter->second) < get<WEIGHT>(res->second))
+            {
+                res = iter;
+            }
+
+            ++iter;
+        }
+
+        // Add edge to used list and delete form curr list
+        EdgeTuple edge = res->second;
+        m_edgeused.insert(*res);
+        m_edgelist.erase(res);
+
+        return edge;
+    }
+
+
     // Private vars
 private:
+    // Parsed Information
     int m_nodesN;
     vector<string> m_nodes;
-    vector<tuple<string, string, int>> m_edges;
+    EdgeMap m_edges;
+
+    // Container to build Forwarding table
+    EdgeMap m_routingmap;
+    EdgeMap m_edgelist;
+    EdgeMap m_edgeused;
+    EdgeMap m_forwardingTable;
+    //set<string> m_notvisted;
+
 
 };
 
@@ -80,7 +272,7 @@ int main()
 
 
     LinkState lstate(filename);
-
+    lstate.CreateRoutingTable();
 
 
     cout << "Finish" << endl;
