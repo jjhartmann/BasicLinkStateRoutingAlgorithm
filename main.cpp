@@ -8,6 +8,7 @@
 #include <set>
 #include <map>
 #include <queue>
+#include <limits.h>
 
 using namespace std;
 typedef std::tuple<string, string, int> EdgeTuple;
@@ -71,6 +72,9 @@ public:
             }
         }
 
+        // Close the file.
+        infile.close();
+
     }
 
     // Main Algorithm, Creates the routing table by finding the min
@@ -90,6 +94,9 @@ public:
             // Build Edge List
             buildEdgeList(node, currWeight);
 
+            // Add node to visited nodes
+            m_vistedNodes.insert(node);
+
             // Find Min edge in list.
             EdgeTuple min_edge = findMinEdge();
 
@@ -99,6 +106,7 @@ public:
             node = get<ENODE>(min_edge);
         }
 
+
         // Build the Forwarding table.
         EdgeMap::iterator sourceNode = m_routingmap.find(*m_nodes.begin());
         vector<string>::iterator iter = m_nodes.begin();
@@ -106,12 +114,13 @@ public:
         {
             if (*iter == sourceNode->first)
             {
+                ++iter;
                 continue;
             }
 
             EdgeMap::iterator siter = sourceNode;
             while (siter != m_routingmap.end() &&
-                   siter->first != sourceNode->first)
+                   siter->first == sourceNode->first)
             {
                 int cost = 0;
                 if (findNode(siter, *iter, cost))
@@ -129,7 +138,7 @@ public:
                 }
             }
 
-
+            ++iter;
         }
 
 
@@ -138,7 +147,16 @@ public:
     // Print the forwarding table
     void Print()
     {
-        ;
+        EdgeMap::iterator iter = m_forwardingTable.begin();
+
+        while (iter != m_forwardingTable.end())
+        {
+            cout << iter->first << " (" << get<SNODE>(iter->second)
+                    << "-" << get<ENODE>(iter->second) << ") "
+                    << get<WEIGHT>(iter->second) << endl;
+
+            ++iter;
+        }
     }
 
     // Pivate methods
@@ -159,7 +177,7 @@ private:
 
         while (!Q.empty())
         {
-            string node = Q.back();
+            string node = Q.front();
             EdgeMap::iterator outerIter = m_routingmap.find(Q.back());
             Q.pop();
 
@@ -174,6 +192,7 @@ private:
                 }
 
                 Q.push(get<ENODE>(outerIter->second));
+                ++outerIter;
             }
         }
 
@@ -186,7 +205,7 @@ private:
     void buildEdgeList(const string node, const int wieght)
     {
         EdgeMap::iterator iter = m_edges.find(node);
-        while (iter->first == node)
+        while (iter != m_edges.end() && iter->first == node)
         {
             EdgeTuple tpl = iter->second;
             get<WEIGHT>(tpl) += wieght;
@@ -224,12 +243,15 @@ private:
     EdgeTuple findMinEdge()
     {
         EdgeMap::iterator iter = m_edgelist.begin();
-        EdgeMap::iterator res =iter;
+        EdgeMap::iterator res;
+        int currWeight = INT_MAX;
         while (iter != m_edgelist.end())
         {
-            if (get<WEIGHT>(iter->second) < get<WEIGHT>(res->second))
+            if (get<WEIGHT>(iter->second) < currWeight &&
+                m_vistedNodes.find(get<ENODE>(iter->second)) == m_vistedNodes.end())
             {
                 res = iter;
+                currWeight = get<WEIGHT>(res->second);
             }
 
             ++iter;
@@ -250,6 +272,7 @@ private:
     int m_nodesN;
     vector<string> m_nodes;
     EdgeMap m_edges;
+    set<string> m_vistedNodes;
 
     // Container to build Forwarding table
     EdgeMap m_routingmap;
@@ -273,7 +296,7 @@ int main()
 
     LinkState lstate(filename);
     lstate.CreateRoutingTable();
-
+    lstate.Print();
 
     cout << "Finish" << endl;
     return 0;
