@@ -165,7 +165,7 @@ public:
     // Pivate methods
 private:
 
-    // Determine if node is in current source edge
+    // Determine if node is in current source edge using breadth first search
     // Return true if so.
     bool findNode(EdgeMap::iterator &snode, string currNode, int &cost)
     {
